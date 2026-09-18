@@ -1,0 +1,43 @@
+# CI for the hq repo — the checks in 05-TOOLS/, in two tiers.
+#
+# local-checks read only this repo and always run. fleet-checks read the
+# sibling repos and need two CI variables (Settings -> CI/CD -> Variables):
+# HQ_FLEET_USER / HQ_FLEET_TOKEN — a group deploy token with read_repository
+# scope, Masked + Protected (see 05-TOOLS/check-refs.sh --help). On a
+# merge-request pipeline the fleet checks run in merge-request scope: they
+# fail only on what the branch broke and report the rest as drift/deferred.
+
+stages: [check]
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+.check-base:
+  stage: check
+  image: debian:stable-slim
+  before_script:
+    - apt-get update -qq && apt-get install -qq -y --no-install-recommends git ca-certificates >/dev/null
+
+local-checks:
+  extends: .check-base
+  script:
+    - bash 05-TOOLS/check-numbers.sh
+    - bash 05-TOOLS/check-features.sh
+
+fleet-checks:
+  extends: .check-base
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        HQ_CHECK_SCOPE: merge-request
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - bash 05-TOOLS/check-refs.sh
+    - bash 05-TOOLS/check-claims.sh
+    - bash 05-TOOLS/check-unclaimed.sh
+    - bash 05-TOOLS/check-shipped.sh
+    - bash 05-TOOLS/check-deployed.sh

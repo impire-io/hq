@@ -1,0 +1,7 @@
+.superpowers/
+.DS_Store
+.soulstream.json
+
+# Python bytecode from the guard scripts, produced when their cases are run.
+__pycache__/
+*.pyc
