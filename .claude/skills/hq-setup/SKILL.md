@@ -16,10 +16,19 @@ Ask for, and confirm back:
 - **The forge** — GitHub or GitLab; this varies per project and per organization.
 - **Forge host** (e.g. `github.com` or `gitlab.example.com`) and **org/group path** (e.g. `my-org`, or `my-org/atlas` on GitLab, where subgroups exist) — the place that holds, or will hold, the fleet.
 - **Known code repos**, if any exist yet: name + one line on what each owns (and the forge project slug where it differs from the directory name).
+- **The template repo's URL** — where this instance was created from, so `05-TOOLS/migrate.sh` can pull later template improvements. Skip it only if the project will never migrate.
 
 ## 2. Write the config
 
-Fill the values at the top of [`05-TOOLS/config.sh`](../../../05-TOOLS/config.sh): `HQ_REPO`, `HQ_FORGE`, `HQ_FORGE_HOST`, `HQ_GROUP_PATH`. Leave `HQ_REPO` empty when the repo's directory name equals its repo name, and `HQ_FORGE` empty when the host makes it obvious (a host containing "github" infers github; anything else gitlab) — the tools derive both. If the project deploys via a Helm umbrella + values-file shape, also offer the optional `HQ_DEPLOY_*` values (see `05-TOOLS/check-deployed.sh --help`); otherwise leave them out.
+Fill the values at the top of [`05-TOOLS/config.sh`](../../../05-TOOLS/config.sh): `HQ_REPO`, `HQ_FORGE`, `HQ_FORGE_HOST`, `HQ_GROUP_PATH`, `HQ_TEMPLATE_REPO`. Leave `HQ_REPO` empty when the repo's directory name equals its repo name, and `HQ_FORGE` empty when the host makes it obvious (a host containing "github" infers github; anything else gitlab) — the tools derive both. If the project deploys via a Helm umbrella + values-file shape, also offer the optional `HQ_DEPLOY_*` values (see `05-TOOLS/check-deployed.sh --help`); otherwise leave them out.
+
+With `HQ_TEMPLATE_REPO` set, record the migration baseline so `05-TOOLS/migrate.sh` knows where this instance forked off:
+
+```
+git fetch <template-url> main && git rev-parse FETCH_HEAD > 05-TOOLS/template-commit
+```
+
+(Right for a freshly created instance; an older one passes the true creation commit to `migrate.sh --base` once instead.)
 
 ## 3. Seed the repo map
 
@@ -59,7 +68,11 @@ List for the user what only they can set up on the forge — the shape differs p
 - `05-TOOLS/check-features.sh` and, once there is a remote, `05-TOOLS/status.sh` run clean.
 - `grep -ri` for the previous project's name returns nothing unexpected.
 
-## 8. Trim what does not apply
+## 8. Existing material
+
+When the project brings existing knowledge — decision records, design docs, a backlog, roadmaps — continue with the **`hq-migrate`** skill after this wizard: it routes each kind into the numbered structure with the curation the rules here demand.
+
+## 9. Trim what does not apply
 
 - **The other forge's CI file:** the template ships both `.github/workflows/checks.yml` and `.gitlab-ci.yml`; delete the one the chosen forge does not use.
 - **Derived views:** ask whether the project keeps a derived docs site and/or a builder-skills marketplace. If not, offer to delete playbooks 05/06 (`00-META/process/05-external-sync.md`, `06-builder-skill-sync.md`), the `hq-sync-docs` skill, and the references to them (the overview table in `00-META/process/00-overview.md`, step 8–9 of playbook 04, step 5 of the graduation flows) — and this section's own reminder in AGENTS.md.

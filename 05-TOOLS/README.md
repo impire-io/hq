@@ -3,7 +3,8 @@
 The content folders are Markdown-only; this folder is where every checked-in
 tool lives. One line each:
 
-- `config.sh` — the one place this project names itself: the hq repo's name, the forge (github|gitlab), its host and its org/group. Sourced by every tool; filled by the `hq-setup` skill.
+- `config.sh` — the one place this project names itself: the hq repo's name, the forge (github|gitlab), its host and its org/group, and the template repo it came from. Sourced by every tool; filled by the `hq-setup` skill.
+- `migrate.sh` — pull the template's machinery improvements (tools, skills, playbooks, CI) into this instance, file by file with a three-way merge; project content is never touched. `05-TOOLS/template-commit` records the template commit last migrated from.
 - `open-workspace.sh` — open (or extend) a work item's isolated workspace under `.work/<id>/`.
 - `teardown-workspace.sh` — remove one work item's worktrees, branch and directory, nothing wider.
 - `sync.sh` — clone/fast-forward every clone the forge org/group holds.

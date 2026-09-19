@@ -17,11 +17,16 @@
 #   HQ_FORGE_HOST  the forge host, e.g. github.com or gitlab.example.com
 #   HQ_GROUP_PATH  the org (GitHub) or group (GitLab, subgroups allowed)
 #                  holding the fleet, e.g. my-org or my-org/my-platform
+#   HQ_TEMPLATE_REPO  the hq template this instance was created from — a git
+#                  URL or local path. 05-TOOLS/migrate.sh pulls the template's
+#                  machinery improvements from it; leave empty if this project
+#                  never migrates.
 
 : "${HQ_REPO:=}"
 : "${HQ_FORGE:=}"
 : "${HQ_FORGE_HOST:=}"
 : "${HQ_GROUP_PATH:=}"
+: "${HQ_TEMPLATE_REPO:=}"
 
 # hq_repo — print the hub repo's name, deriving it from the working tree's
 # root directory when HQ_REPO is unset. Call from inside the hq repo.

@@ -3,6 +3,10 @@
 This repository is the single source of truth for the project's mission, research, design, decisions, and issue diagnosis. Implementation lives in the code repos beside it (the *fleet*); this repo holds what they are built against.
 
 > **Starting from the template?** This repo begins as a skeleton. Run the `hq-setup` skill in Claude Code — it asks for the project's name, its forge (GitHub or GitLab) and the org/group there, writes [`05-TOOLS/config.sh`](05-TOOLS/config.sh), seeds [`00-META/repos.md`](00-META/repos.md), and walks you through filling in the mission, context, and effect documents. Everything the wizard writes can also be edited by hand.
+>
+> **Bringing an existing project?** After `hq-setup`, the `hq-migrate` skill moves the material you already have — decision records, design docs, an issue backlog, roadmaps — into the numbered structure, with the curation this repo's rules demand.
+>
+> **Staying current:** the template keeps improving after your project is created. [`05-TOOLS/migrate.sh`](05-TOOLS/migrate.sh) pulls its machinery updates (tools, skills, playbooks, CI) into the instance as an ordinary reviewable change; your content is never touched.
 
 ## Getting the code, and keeping it current
 

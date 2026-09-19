@@ -2,7 +2,7 @@
 
 This repository is the source of truth for the project's mission, research, design, decisions, and issue diagnosis. Implementation lives in the code repos (see `00-META/repos.md`).
 
-Before changing anything here, read the playbooks in `00-META/process/` — every workflow (research, graduation, design amendment, issues, build handoff, external sync, builder-skill sync, parallel work) is documented there, and agents operate through them. Thin skills in `.claude/skills/` wrap these playbooks for invocation (`hq-new-research`, `hq-graduate`, `hq-new-issue`, `hq-defer`, `hq-diagnose`, `hq-amend-design`, `hq-handoff`, `hq-sync-docs`, `hq-status`, `hq-work`); each defers to its playbook as authoritative and adds only the mechanical scaffolding. A fresh instance of this template is configured by the `hq-setup` skill, which fills `05-TOOLS/config.sh` and the 00-META content docs.
+Before changing anything here, read the playbooks in `00-META/process/` — every workflow (research, graduation, design amendment, issues, build handoff, external sync, builder-skill sync, parallel work) is documented there, and agents operate through them. Thin skills in `.claude/skills/` wrap these playbooks for invocation (`hq-new-research`, `hq-graduate`, `hq-new-issue`, `hq-defer`, `hq-diagnose`, `hq-amend-design`, `hq-handoff`, `hq-sync-docs`, `hq-status`, `hq-work`); each defers to its playbook as authoritative and adds only the mechanical scaffolding. A fresh instance of this template is configured by the `hq-setup` skill, which fills `05-TOOLS/config.sh` and the 00-META content docs; an existing project's material moves in through the `hq-migrate` skill; and `05-TOOLS/migrate.sh` pulls later template improvements into the instance.
 
 Ground rules:
 
