@@ -20,7 +20,7 @@ Refused, not discouraged: [`05-TOOLS/guard-readonly-clone.py`](../../05-TOOLS/gu
 
 ## The work ID
 
-One string — the branch name in **every** repo the work touches, the workspace directory name, and the MR label.
+One string — the branch name in **every** repo the work touches, the workspace directory name, and the MR label. (MR — merge request; on GitHub read PR, pull request, throughout: the flow is identical, only the CLI differs.)
 
 **An ID is only ever taken from a record that already exists.** Never from one the work is going to produce: a number you have not allocated yet is not yours, and minting an ID from it means renaming the branch when someone else takes it first.
 
@@ -43,7 +43,8 @@ No `spec/`, `fix/`, or `feat/` prefix. The ID is the query.
 1. **Check what is already in flight.** Before anything else:
 
    ```
-   glab mr list --group <group>
+   glab mr list --group <group>                     # GitLab
+   gh search prs --owner <group> --state open       # GitHub
    ```
 
    Every open MR across every repo in the group — which, under this playbook, is every piece of work anyone has started. If the work is already claimed, join it instead of duplicating it.
@@ -114,10 +115,18 @@ No `spec/`, `fix/`, or `feat/` prefix. The ID is the query.
 4. **Push the first commit and open the draft MR.** Do this as early as there is anything to push; the draft MR is the claim, not the finish line.
 
    ```
+   # GitLab
    glab mr create --draft --push --yes \
      --label "work/<work-id>" \
      --title "<work-id>: <what it does>" \
      --description "<hq-repo>: <path/to/work-item.md>
+   Blocked by: <predecessor MR url, or none>"
+
+   # GitHub
+   git push -u origin <work-id>
+   gh pr create --draft --label "work/<work-id>" \
+     --title "<work-id>: <what it does>" \
+     --body "<hq-repo>: <path/to/work-item.md>
    Blocked by: <predecessor MR url, or none>"
    ```
 
@@ -132,7 +141,8 @@ No `spec/`, `fix/`, or `feat/` prefix. The ID is the query.
    flip it:
 
    ```
-   glab mr update --ready
+   glab mr update --ready     # GitLab
+   gh pr ready                # GitHub
    ```
 
    Draft and ready are the only two signals the reviewer gets. Draft says "not yet mergeable — don't spend review on this"; ready says "read it and merge it". A finished MR left in draft sends the first signal about the second state, and the human has to re-derive readiness by inspecting the branch — the one job the flag exists to spare them. Never flip earlier than the two conditions above, and never leave a finished MR sitting in draft.

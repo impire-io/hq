@@ -3,17 +3,17 @@
 The content folders are Markdown-only; this folder is where every checked-in
 tool lives. One line each:
 
-- `config.sh` — the one place this project names itself: the hq repo's name, the GitLab host and group. Sourced by every tool; filled by the `hq-setup` skill.
+- `config.sh` — the one place this project names itself: the hq repo's name, the forge (github|gitlab), its host and its org/group. Sourced by every tool; filled by the `hq-setup` skill.
 - `open-workspace.sh` — open (or extend) a work item's isolated workspace under `.work/<id>/`.
 - `teardown-workspace.sh` — remove one work item's worktrees, branch and directory, nothing wider.
-- `sync.sh` — clone/fast-forward every clone the GitLab group holds.
+- `sync.sh` — clone/fast-forward every clone the forge org/group holds.
 - `status.sh` — render the status view from frontmatter at `origin/main`. Light: this repo only. `--roadmap` and `--feature <name>` read `feature:` and the list in `06-FEATURES/README.md`.
 - `allocate-issue.sh` — mint the next issue number by committing the record to main. Atomic.
 - `claim.sh` — claim/release an issue (`claimed-by:` intent), committed to main. Atomic.
 - `set-issue.sh` — set an issue's scalar state fields (`kind`, `priority`, `status`, `located-in`, `feature`, `blocked-by`, `resolved`), committed to main with playbook 03's rules. A close runs `check-claims.sh --only` first. Atomic.
 - `commit-to-main.sh` — sourced CAS core for the three writers above; the only code that pushes to main.
 
-  All three writers require Developer push access to main on GitLab (Settings → Repository → Protected branches); without it they fail at push, loudly, changing nothing.
+  All three writers require push access to the protected main branch — on GitLab, Developer push (Settings → Repository → Protected branches); on GitHub, a branch protection rule or ruleset that lets the writers push. Without it they fail at push, loudly, changing nothing.
 - `check-refs.sh` — every relative markdown link, this repo and siblings, must resolve (CI).
 - `check-numbers.sh` — no duplicate issue (NNN) or decision (NNNN) numbers, working tree or vs origin/main (CI).
 - `check-features.sh` — every `feature:` names a doc in `06-FEATURES/`, every feature doc is on the roadmap list once, no frontmatter on a feature doc (CI).

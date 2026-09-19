@@ -165,7 +165,13 @@ fi
 
 echo "done: $OPENED worktree(s) on branch $WORK_ID"
 echo
-echo "Next: work there, then open the draft MR on the first push — it is the claim."
+echo "Next: work there, then open the draft MR/PR on the first push — it is the claim."
 echo "  cd $TARGET/<repo>"
-echo "  glab mr create --draft --push --yes --label \"work/$WORK_ID\" \\"
-echo "    --title \"$WORK_ID: <what it does>\" --description \"$HQ_REPO: <path/to/work-item.md>\""
+if [ "$(hq_forge)" = github ]; then
+  echo "  git push -u origin $WORK_ID"
+  echo "  gh pr create --draft --label \"work/$WORK_ID\" \\"
+  echo "    --title \"$WORK_ID: <what it does>\" --body \"$HQ_REPO: <path/to/work-item.md>\""
+else
+  echo "  glab mr create --draft --push --yes --label \"work/$WORK_ID\" \\"
+  echo "    --title \"$WORK_ID: <what it does>\" --description \"$HQ_REPO: <path/to/work-item.md>\""
+fi

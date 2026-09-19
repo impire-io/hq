@@ -24,7 +24,7 @@ lands:                   # cross-repo builds only; the declared landing order
 ---
 ```
 
-`lands:` states the *plan* — which repos the build lands in and in what order — written at build handoff, with `mr:` filled in as each MR opens. A single-repo build omits it; GitLab stays authoritative for live state. See playbook [`00-META/process/07-parallel-work.md`](../00-META/process/07-parallel-work.md).
+`lands:` states the *plan* — which repos the build lands in and in what order — written at build handoff, with `mr:` filled in as each MR opens. A single-repo build omits it; the forge stays authoritative for live state. See playbook [`00-META/process/07-parallel-work.md`](../00-META/process/07-parallel-work.md).
 
 **A doc that only aggregates carries no frontmatter at all** — the READMEs, and a layer or cluster overview whose job is framing, reading order, and what lives elsewhere. It has no contract of its own, so a status on it is either a duplicate of its siblings' or wrong about them, and it is one more thing to remember to flip. Its state is read from the docs it points at.
 

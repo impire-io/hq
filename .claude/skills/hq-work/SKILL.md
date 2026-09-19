@@ -7,7 +7,7 @@ description: Use when starting, pushing, or landing any piece of work in this pr
 
 Keeps parallel work — several agents on one machine, several engineers on one fleet — isolated on disk and visible from the first push. **Authoritative playbook:** [`00-META/process/07-parallel-work.md`](../../../00-META/process/07-parallel-work.md); posture in [`00-META/how-we-build.md`](../../../00-META/how-we-build.md).
 
-The GitLab group below (`<group>`) is the one configured in [`05-TOOLS/config.sh`](../../../05-TOOLS/config.sh); `<clone-root>` is the directory holding the shared clones, and `<hq-repo>` this repo's clone directory.
+The forge group/org below (`<group>`) is the one configured in [`05-TOOLS/config.sh`](../../../05-TOOLS/config.sh), which also names the forge (GitHub or GitLab — MR below means merge request; read PR on GitHub); `<clone-root>` is the directory holding the shared clones, and `<hq-repo>` this repo's clone directory.
 
 ## The clones are read-only
 
@@ -27,7 +27,7 @@ A slug is a first-class ID, not a fallback. An ADR or issue the work *produces* 
 
 ## Starting work
 
-1. **Check what is in flight:** `glab mr list --group <group>`. Under this playbook every started piece of work has an open MR, so this is the duplicate-work check. If it is already claimed, join it.
+1. **Check what is in flight:** `glab mr list --group <group>` (GitLab) / `gh search prs --owner <group> --state open` (GitHub). Under this playbook every started piece of work has an open MR, so this is the duplicate-work check. If it is already claimed, join it.
 2. **Open the workspace with one command**, naming only the code repos the work touches:
 
    ```
@@ -42,9 +42,17 @@ A slug is a first-class ID, not a fallback. An ADR or issue the work *produces* 
 4. **On the first push, open the draft MR** — it is the claim, not the finish line:
 
    ```
+   # GitLab
    glab mr create --draft --push --yes --label "work/<work-id>" \
      --title "<work-id>: <what it does>" \
      --description "<hq-repo>: <path/to/work-item.md>
+   Blocked by: <predecessor MR url, or none>"
+
+   # GitHub
+   git push -u origin <work-id>
+   gh pr create --draft --label "work/<work-id>" \
+     --title "<work-id>: <what it does>" \
+     --body "<hq-repo>: <path/to/work-item.md>
    Blocked by: <predecessor MR url, or none>"
    ```
 
@@ -56,7 +64,7 @@ Commit at every green checkpoint and push every commit. Refresh from `origin/mai
 
 ## Landing work
 
-5. **Mark the MR ready yourself** (`glab mr update --ready`) the moment the quality gate is green — `make fmt && make test && make lint` — **and** every predecessor in `after:` has merged. Never earlier, and never left undone: a finished MR sitting in draft makes the human re-derive readiness; ready means they just read and merge.
+5. **Mark the MR ready yourself** (`glab mr update --ready` / `gh pr ready`) the moment the quality gate is green — `make fmt && make test && make lint` — **and** every predecessor in `after:` has merged. Never earlier, and never left undone: a finished MR sitting in draft makes the human re-derive readiness; ready means they just read and merge.
 6. **A human merges**, in `lands:` order where one exists.
 7. **Tear down** once every MR of the item has merged: `<clone-root>/<hq-repo>/05-TOOLS/teardown-workspace.sh <work-id>`. It scopes every step to that one item.
 

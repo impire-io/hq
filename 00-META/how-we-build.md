@@ -86,7 +86,8 @@ disagree, this document wins until the brief is corrected).
 Several agents run on one machine and several engineers work the same fleet, so
 a change must be isolated where it is made and visible from the moment it is
 started. One **work ID** — a single string — names the branch in
-every repo the change touches, the workspace directory, and the MR label. It is
+every repo the change touches, the workspace directory, and the MR label
+(MR — merge request; a pull request on GitHub). It is
 taken only from a record that **already exists** — an hq design or issue, a
 repo's spec-kit feature — and otherwise is a bare descriptive slug. Never from a
 record the work will produce: an unallocated number is not yours, and building an
@@ -116,8 +117,8 @@ one query the ID exists to make possible.
 
 - **Cross-repo landing order is declared, not inferred.** A change spanning repos
   carries an ordered `lands:` block on its hq work item naming each repo,
-  its MR, and what it waits on. The hq repo states the plan; GitLab holds the
-  live state. "Held until the other half lands" is a field, not a sentence buried
+  its MR, and what it waits on. The hq repo states the plan; the forge holds
+  the live state. "Held until the other half lands" is a field, not a sentence buried
   in a report.
 
 - **A cross-repo reference is verified, not trusted.** Sibling repos cite hq

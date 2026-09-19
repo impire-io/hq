@@ -23,7 +23,8 @@
 #   NO_FETCH=1 ./05-TOOLS/check-unclaimed.sh   # local, offline: use origin/main as last fetched
 #   CI=true ./05-TOOLS/check-unclaimed.sh      # CI: clones the repos it needs
 #
-# CI variables: HQ_FLEET_USER / HQ_FLEET_TOKEN, as for 05-TOOLS/check-refs.sh.
+# CI credential: HQ_FLEET_TOKEN (GitHub) or HQ_FLEET_USER + HQ_FLEET_TOKEN
+# (GitLab), as documented in 05-TOOLS/check-refs.sh.
 #
 # Two tiers, because the evidence is not equally good
 # ---------------------------------------------------
@@ -76,8 +77,6 @@ HQ_REPO="${HQ_REPO:-$(basename "$HQ_ROOT")}"
 # Siblings sit beside the *clone*. In a git worktree that is not the parent of
 # HQ_ROOT, so ask git where the real repository is.
 SIBLING_ROOT="$(dirname "$(dirname "$(git -C "$HQ_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$HQ_ROOT/.git")")")"
-GROUP_PATH="${HQ_GROUP_PATH}"
-GROUP_URL="https://${HQ_FORGE_HOST}/${GROUP_PATH}"
 GAPS=0
 DEFERRED=0
 CITED=0
@@ -128,8 +127,7 @@ fi
 
 if [ "${CI:-}" = "true" ]; then
   hq_require_group || exit 1
-  : "${HQ_FLEET_USER:?HQ_FLEET_USER must be set in CI}"
-  : "${HQ_FLEET_TOKEN:?HQ_FLEET_TOKEN must be set in CI}"
+  hq_require_fleet_auth
   WORKDIR="$(mktemp -d)"
   trap 'rm -rf "$WORKDIR"' EXIT
 fi
@@ -150,16 +148,16 @@ touched() {
   printf '%s\n' "$TOUCHED" | grep -qx -- "$1"
 }
 
-# Logical name -> gitlab slug, from the note repos.md carries.
+# Logical name -> forge project slug, from the note repos.md carries.
 slug_of() {
   awk -F'|' -v want="$1" '
     /^\| `/ {
       name = $2; gsub(/[` ]/, "", name)
       if (name != want) next
       slug = name
-      if (match($3, /gitlab project `[a-z0-9-]+`/)) {
+      if (match($3, /project `[a-z0-9-]+`/)) {
         slug = substr($3, RSTART, RLENGTH)
-        sub(/gitlab project `/, "", slug); sub(/`$/, "", slug)
+        sub(/.*project `/, "", slug); sub(/`$/, "", slug)
       }
       print slug; exit
     }' "$HQ_ROOT/00-META/repos.md"
@@ -174,7 +172,7 @@ checkout_of() {
     local dest="$WORKDIR/$slug"
     [ -d "$dest" ] && { printf '%s' "$dest"; return 0; }
     git clone --quiet --branch main \
-      "https://${HQ_FLEET_USER}:${HQ_FLEET_TOKEN}@${GROUP_URL#https://}/${slug}.git" \
+      "$(hq_clone_url "$slug")" \
       "$dest" && printf '%s' "$dest"
   else
     local d
@@ -335,10 +333,18 @@ for report in "$HQ_ROOT"/04-ISSUES/*/00-report.md; do
       continue
     fi
 
-    # Weaker: a merged work-ID branch beginning with this number.
+    # Weaker: a merged work-ID branch beginning with this number. GitLab merge
+    # commits carry the branch name in "Merge branch '<id>-…'"; GitHub merge
+    # commits carry it after "Merge pull request #N from <owner>/". A squash
+    # merge carries no branch name on either forge — this tier just misses it.
     [ "$said_likely" = 1 ] && continue
-    hits="$(git -C "$dir" log origin/main --merges --format='%h %s' \
-              -E --grep="Merge branch '${num}-" --grep="Merge branch '[0-9]{3}-${num}-" 2>/dev/null | head -2)"
+    if [ "$(hq_forge)" = github ]; then
+      hits="$(git -C "$dir" log origin/main --merges --format='%h %s' \
+                -E --grep="Merge pull request #[0-9]+ from [^ ]+/${num}-" 2>/dev/null | head -2)"
+    else
+      hits="$(git -C "$dir" log origin/main --merges --format='%h %s' \
+                -E --grep="Merge branch '${num}-" --grep="Merge branch '[0-9]{3}-${num}-" 2>/dev/null | head -2)"
+    fi
     if [ -n "$hits" ]; then
       echo "LIKELY        $rel is '$status' — $repo main merged a work ID starting $num:"
       printf '%s\n' "$hits" | sed 's/^/                  /'

@@ -28,7 +28,7 @@ feature:                       # optional — the 06-FEATURES doc this belongs t
 discovered-while:              # optional backref to where this was noticed (a path, an issue, an MR)
 fixed-by:                      # what fixed it, filled at resolution (see below)
   - repo: svc-a
-    mr: "!12"                  # or commit: <sha> | tag: vX.Y.Z | action: deploy
+    mr: "!12"                  # GitLab "!N" / GitHub "#N"; or commit: <sha> | tag: vX.Y.Z | action: deploy
     note: "fix 008 — the guard now skips the reserved prefixes"
 amended-design:                # design doc path, when the root cause was a design gap
 lands:                         # cross-repo fixes only; the declared landing order
@@ -52,8 +52,8 @@ verified against git on every CI run:
 
 | Kind | Meaning |
 |---|---|
-| `mr: "!N"` | a merge commit carrying GitLab's `See merge request …!N` |
-| `commit: <sha>` | an ancestor of `origin/main` — for a merge with no MR trailer |
+| `mr: "!N"` / `mr: "#N"` | GitLab: a merge commit carrying `See merge request …!N`. GitHub: a `Merge pull request #N` merge commit, or a squash-merge subject ending `(#N)` |
+| `commit: <sha>` | an ancestor of `origin/main` — for a merge that leaves no marker (a fast-forward, a GitHub rebase merge) |
 | `tag: vX.Y.Z` | a tag resolving to a commit on main |
 | `action: <kind>` | an operational act (a deploy reconcile). **Out of scope** — it happened outside git, so no git check can attest to it. Reported separately, never counted as a gap. |
 
@@ -64,7 +64,7 @@ confirmed live. Structure was added around the prose, not in place of it.
 belongs in its own issue, not inside a closed one — outstanding work in a
 `resolved` record is invisible to every status view.
 
-`lands:` states the *plan*: which repos the fix lands in and in what order. It is written when the fix is planned, with `mr:` filled in as each MR opens; a single-repo fix omits it entirely. GitLab remains authoritative for live state — see playbook [`00-META/process/07-parallel-work.md`](../00-META/process/07-parallel-work.md).
+`lands:` states the *plan*: which repos the fix lands in and in what order. It is written when the fix is planned, with `mr:` filled in as each MR opens; a single-repo fix omits it entirely. The forge remains authoritative for live state — see playbook [`00-META/process/07-parallel-work.md`](../00-META/process/07-parallel-work.md).
 
 ## Rules
 

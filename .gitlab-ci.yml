@@ -1,4 +1,6 @@
-# CI for the hq repo — the checks in 05-TOOLS/, in two tiers.
+# CI for the hq repo on GitLab — the checks in 05-TOOLS/, in two tiers.
+# (A project on GitHub uses .github/workflows/checks.yml instead and deletes
+# this file; the hq-setup skill offers to do so.)
 #
 # local-checks read only this repo and always run. fleet-checks read the
 # sibling repos and need two CI variables (Settings -> CI/CD -> Variables):

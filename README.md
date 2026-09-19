@@ -2,7 +2,7 @@
 
 This repository is the single source of truth for the project's mission, research, design, decisions, and issue diagnosis. Implementation lives in the code repos beside it (the *fleet*); this repo holds what they are built against.
 
-> **Starting from the template?** This repo begins as a skeleton. Run the `hq-setup` skill in Claude Code — it asks for the project's name, GitLab host and group, writes [`05-TOOLS/config.sh`](05-TOOLS/config.sh), seeds [`00-META/repos.md`](00-META/repos.md), and walks you through filling in the mission, context, and effect documents. Everything the wizard writes can also be edited by hand.
+> **Starting from the template?** This repo begins as a skeleton. Run the `hq-setup` skill in Claude Code — it asks for the project's name, its forge (GitHub or GitLab) and the org/group there, writes [`05-TOOLS/config.sh`](05-TOOLS/config.sh), seeds [`00-META/repos.md`](00-META/repos.md), and walks you through filling in the mission, context, and effect documents. Everything the wizard writes can also be edited by hand.
 
 ## Getting the code, and keeping it current
 
@@ -15,7 +15,7 @@ git clone git@<forge-host>:<group>/<hq-repo>.git <clone-root>/<hq-repo>
 
 **Run it whenever you want the fleet current, not only on day one.** Setting up a machine is just the case where every repository happens to be missing: the script clones what is missing, fast-forwards what is clean, and leaves everything else alone. It keeps no state between runs, so there is no wrong moment to run it.
 
-It needs `git`, [`glab`](https://gitlab.com/gitlab-org/cli), `jq`, and an SSH key on the GitLab host — it reports whatever is missing and installs nothing. It discovers the repositories from the GitLab group and its subgroups (configured in `05-TOOLS/config.sh`), so a repository added to the group appears on its own, and a subgroup becomes a directory beside the other clones. It only ever fast-forwards a clean clone sitting on its default branch; anything dirty or on a work branch is fetched and then left untouched, which is what makes it safe to run while other people's — and other agents' — work is in progress. Use `--dry-run` to see what it would do, and `--root` to put the clones somewhere other than this repo's parent.
+It needs `git`, the forge CLI ([`gh`](https://cli.github.com) on GitHub, [`glab`](https://gitlab.com/gitlab-org/cli) plus `jq` on GitLab), and an SSH key on the forge host — it reports whatever is missing and installs nothing. It discovers the repositories from the org or group configured in `05-TOOLS/config.sh` (GitLab subgroups included), so a repository added there appears on its own, and a GitLab subgroup becomes a directory beside the other clones. It only ever fast-forwards a clean clone sitting on its default branch; anything dirty or on a work branch is fetched and then left untouched, which is what makes it safe to run while other people's — and other agents' — work is in progress. Use `--dry-run` to see what it would do, and `--root` to put the clones somewhere other than this repo's parent.
 
 Workspaces for actual work are a separate matter — one worktree per repo under `.work/<work-id>/`, per [playbook 07](00-META/process/07-parallel-work.md).
 

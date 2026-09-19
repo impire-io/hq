@@ -48,7 +48,8 @@ echo "    $ROOT/$HQ_REPO/05-TOOLS/open-workspace.sh <work-id> [repo...]"
 echo "then work in $ROOT/.work/<work-id>/<repo>/. Run it again later to add a repo."
 
 # What is already in flight on this machine. Not a substitute for the
-# group-wide `glab mr list --group <group>` query, which sees the fleet;
+# group-wide open-MR/PR query (`glab mr list --group <group>` /
+# `gh search prs --owner <org> --state open`), which sees the fleet;
 # this only sees the disk, and is here because it costs nothing.
 if [ -d "$ROOT/.work" ]; then
   items=()

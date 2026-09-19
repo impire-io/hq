@@ -12,8 +12,8 @@ checkers (`check-refs.sh`, `check-claims.sh`, `check-unclaimed.sh`,
 one row per repo, the name in backticks in the first column:
 
 - `` | `name` | what it owns | `` — the name is the clone's directory name.
-- When a repo's GitLab project slug differs from the local directory name,
-  record it in the second column as `` (gitlab project `slug`) `` — the
+- When a repo's forge project slug differs from the local directory name,
+  record it in the second column as `` (project `slug`) `` — the
   checkers read that note to find the project.
 - This hq repo itself gets a row too; the checkers skip it by name.
 
@@ -22,7 +22,7 @@ column 0; the indented example below is ignored by the tools:
 
     | `my-hq` | This repo — mission, research, design, decisions, issue diagnosis. The source of truth. |
     | `my-service` | The frobnicator service: what it owns, stated as a boundary. |
-    | `my-lib` | The shared client library (gitlab project `my-client-lib`). |
+    | `my-lib` | The shared client library (project `my-client-lib`). |
 
 -->
 

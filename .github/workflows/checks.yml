@@ -1,0 +1,44 @@
+# CI for the hq repo on GitHub — the checks in 05-TOOLS/, in two tiers.
+# (A project on GitLab uses .gitlab-ci.yml instead and deletes this file;
+# the hq-setup skill offers to do so.)
+#
+# local-checks read only this repo and always run. fleet-checks read the
+# sibling repos and need one Actions secret: HQ_FLEET_TOKEN — a fine-grained
+# PAT (or app token) with read-only Contents access to the org's repositories
+# (see 05-TOOLS/check-refs.sh --help). On a pull request the fleet checks run
+# in merge-request scope: they fail only on what the branch broke and report
+# the rest as drift/deferred.
+
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * *"
+
+jobs:
+  local-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: bash 05-TOOLS/check-numbers.sh
+      - run: bash 05-TOOLS/check-features.sh
+
+  fleet-checks:
+    runs-on: ubuntu-latest
+    env:
+      HQ_FLEET_TOKEN: ${{ secrets.HQ_FLEET_TOKEN }}
+      HQ_CHECK_SCOPE: ${{ github.event_name == 'pull_request' && 'merge-request' || 'fleet' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: bash 05-TOOLS/check-refs.sh
+      - run: bash 05-TOOLS/check-claims.sh
+      - run: bash 05-TOOLS/check-unclaimed.sh
+      - run: bash 05-TOOLS/check-shipped.sh
+      - run: bash 05-TOOLS/check-deployed.sh

@@ -7,18 +7,20 @@
 # case where everything is missing — there is no separate first-run mode and no
 # state kept between runs, so there is never a wrong moment to run it.
 #
-# Discovers the repositories from the GitLab group (HQ_GROUP_PATH on
-# HQ_FORGE_HOST, from 05-TOOLS/config.sh) rather than from a list kept in this
-# file, so a repo added to the group is picked up on the next run with no edit
-# here. Existing clones are matched on their `origin` URL rather than on their
-# directory name, so a locally renamed clone is recognised instead of cloned a
-# second time.
+# Discovers the repositories from the forge group or org (HQ_FORGE,
+# HQ_GROUP_PATH and HQ_FORGE_HOST in 05-TOOLS/config.sh; the CLI is gh on
+# GitHub, glab on GitLab) rather than from a list kept in this file, so a repo
+# added to the group is picked up on the next run with no edit here. Existing
+# clones are matched on their `origin` URL rather than on their directory
+# name, so a locally renamed clone is recognised instead of cloned a second
+# time.
 #
-# Subgroups are included, and the subgroup path is mirrored on disk:
+# On GitLab, subgroups are included and the subgroup path is mirrored on disk:
 # `<group>/<subgroup>/<repo>` clones to `<root>/<subgroup>/<repo>`. Mirroring
 # rather than flattening is not a matter of taste — a project slug is unique
 # only within its own group, so a flat root cannot hold two projects that
-# share a slug across subgroups.
+# share a slug across subgroups. (GitHub orgs have no subgroups; every repo
+# lands directly under the root.)
 #
 # It only ever fast-forwards, and only a clean clone sitting on its default
 # branch. A dirty tree or a work branch is fetched and then left exactly as it
@@ -38,6 +40,7 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 GROUP="${HQ_GROUP_PATH}"
 HOST="${HQ_FORGE_HOST}"
+FORGE="$(hq_forge)"
 
 ROOT=""
 DRY_RUN=0
@@ -92,24 +95,35 @@ need() {
 }
 
 echo "checking prerequisites"
-need git  "install Xcode command line tools, or: brew install git"
-need glab "brew install glab"
-need jq   "brew install jq"
+need git "install Xcode command line tools, or: brew install git"
+if [ "$FORGE" = github ]; then
+  need gh "brew install gh"
+else
+  need glab "brew install glab"
+  need jq   "brew install jq"
+fi
 
 if [ "$missing" -eq 0 ]; then
-  if ! glab auth status >/dev/null 2>&1; then
-    echo "  ! glab is not authenticated — glab auth login --hostname $HOST" >&2
-    missing=1
+  if [ "$FORGE" = github ]; then
+    if ! GH_HOST="$HOST" gh auth status >/dev/null 2>&1; then
+      echo "  ! gh is not authenticated — gh auth login --hostname $HOST" >&2
+      missing=1
+    fi
+  else
+    if ! glab auth status >/dev/null 2>&1; then
+      echo "  ! glab is not authenticated — glab auth login --hostname $HOST" >&2
+      missing=1
+    fi
   fi
 
-  # GitLab answers a successful key with "Welcome to GitLab, @user!". BatchMode
-  # keeps a missing key from hanging on a password prompt.
+  # A successful key gets a recognisable greeting — GitLab says "Welcome to
+  # GitLab, @user!", GitHub says "Hi user! You've successfully authenticated".
+  # BatchMode keeps a missing key from hanging on a password prompt.
   ssh_out="$(ssh -T -o BatchMode=yes -o ConnectTimeout=10 "git@$HOST" 2>&1 || true)"
   case "$ssh_out" in
-    *"Welcome to GitLab"*) ;;
+    *"Welcome to GitLab"*|*"successfully authenticated"*) ;;
     *)
-      echo "  ! no SSH access to $HOST — add your public key to GitLab:" >&2
-      echo "      https://$HOST/-/user_settings/ssh_keys" >&2
+      echo "  ! no SSH access to $HOST — add your public key on the forge" >&2
       echo "    ssh said: ${ssh_out%%$'\n'*}" >&2
       missing=1
       ;;
@@ -125,19 +139,26 @@ fi
 
 echo "discovering repositories in $GROUP"
 
-# --include-subgroups, because without it the API returns only projects sitting
-# directly in the group and every repo under a subgroup is silently absent — the
-# report then reads like a complete fleet.
-#
-# --member, because glab's default listing is repos the caller OWNS: for
-# every engineer who is a member (not owner) of the group, discovery came
-# back empty and the sync refused to continue.
-#
-# The name is the path *relative to the group* (`<subgroup>/<repo>`),
-# not the bare project slug: the slug alone is ambiguous across subgroups, and
-# this relative path is exactly the directory layout under the root.
-DISCOVERED="$(glab repo list --group "$GROUP" --include-subgroups --per-page 100 --archived=false --output json --member \
-  | jq -r --arg g "$GROUP/" '.[] | [(.path_with_namespace | ltrimstr($g)), .ssh_url_to_repo] | @tsv' | sort)"
+if [ "$FORGE" = github ]; then
+  # gh's --json/--jq needs no separate jq. An org has no subgroups, so the
+  # name is the bare repo name and the mirroring logic below is inert.
+  DISCOVERED="$(GH_HOST="$HOST" gh repo list "$GROUP" --limit 1000 --no-archived \
+    --json name,sshUrl --jq '.[] | [.name, .sshUrl] | @tsv' | sort)"
+else
+  # --include-subgroups, because without it the API returns only projects
+  # sitting directly in the group and every repo under a subgroup is silently
+  # absent — the report then reads like a complete fleet.
+  #
+  # --member, because glab's default listing is repos the caller OWNS: for
+  # every engineer who is a member (not owner) of the group, discovery came
+  # back empty and the sync refused to continue.
+  #
+  # The name is the path *relative to the group* (`<subgroup>/<repo>`),
+  # not the bare project slug: the slug alone is ambiguous across subgroups,
+  # and this relative path is exactly the directory layout under the root.
+  DISCOVERED="$(glab repo list --group "$GROUP" --include-subgroups --per-page 100 --archived=false --output json --member \
+    | jq -r --arg g "$GROUP/" '.[] | [(.path_with_namespace | ltrimstr($g)), .ssh_url_to_repo] | @tsv' | sort)"
+fi
 
 if [ -z "$DISCOVERED" ]; then
   echo "the group returned no repositories; refusing to continue" >&2

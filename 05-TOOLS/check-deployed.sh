@@ -23,7 +23,8 @@
 #   CI=true ./05-TOOLS/check-deployed.sh     # CI: clones the repos it needs
 #   ./05-TOOLS/check-deployed.sh --self-test # exercise every tier against a throwaway fleet
 #
-# CI variables: HQ_FLEET_USER / HQ_FLEET_TOKEN, as for 05-TOOLS/check-refs.sh.
+# CI credential: HQ_FLEET_TOKEN (GitHub) or HQ_FLEET_USER + HQ_FLEET_TOKEN
+# (GitLab), as documented in 05-TOOLS/check-refs.sh.
 #
 # What it reads
 # -------------
@@ -67,8 +68,6 @@ HQ_ROOT="${HQ_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # Siblings sit beside the *clone*. In a git worktree that is not the parent of
 # HQ_ROOT, so ask git where the real repository is.
 SIBLING_ROOT="${HQ_SIBLING_ROOT:-$(dirname "$(dirname "$(git -C "$HQ_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$HQ_ROOT/.git")")")}"
-GROUP_PATH="${HQ_GROUP_PATH}"
-GROUP_URL="https://${HQ_FORGE_HOST}/${GROUP_PATH}"
 
 # Empty by default: a project that deploys this way sets them in config.sh.
 DEPLOY_REPO="${HQ_DEPLOY_REPO:-}"
@@ -83,7 +82,7 @@ CURRENT=0; BEHIND=0; UNRELEASED=0; UNKNOWN=0; UNMAPPED=0; UNREADABLE=0
 # --self-test: a throwaway fleet — a deploy repo, an umbrella repo and four
 # service repos, each a clone with an origin so origin/main exists — that hits
 # every tier once: current, behind, unreleased, unknown, unmapped, an instance
-# key mapped by prefix to a repo whose gitlab slug differs from its name, a
+# key mapped by prefix to a repo whose project slug differs from its name, a
 # repo that tags without the v prefix, and a pre-release tag that must not
 # count as the newest release.
 # ---------------------------------------------------------------------------
@@ -101,7 +100,7 @@ if [ "${1:-}" = "--self-test" ]; then
 | `thing` | current |
 | `other` | behind and unreleased |
 | `plain` | tags without the v prefix |
-| `mcp-adapter` | instance keys (gitlab project `mcp`) |
+| `mcp-adapter` | instance keys (project `mcp`) |
 | `helm` | the umbrella |
 | `services-deploy` | the install |
 REPOS
@@ -205,13 +204,12 @@ fi
 
 if [ "${CI:-}" = "true" ]; then
   hq_require_group || exit 1
-  : "${HQ_FLEET_USER:?HQ_FLEET_USER must be set in CI}"
-  : "${HQ_FLEET_TOKEN:?HQ_FLEET_TOKEN must be set in CI}"
+  hq_require_fleet_auth
   WORKDIR="$(mktemp -d)"
   trap 'rm -rf "$WORKDIR"' EXIT
 fi
 
-# Logical name -> gitlab slug, from the note repos.md carries (as
+# Logical name -> forge project slug, from the note repos.md carries (as
 # 05-TOOLS/check-claims.sh reads it).
 slug_of() {
   awk -F'|' -v want="$1" '
@@ -219,9 +217,9 @@ slug_of() {
       name = $2; gsub(/[` ]/, "", name)
       if (name != want) next
       slug = name
-      if (match($3, /gitlab project `[a-z0-9-]+`/)) {
+      if (match($3, /project `[a-z0-9-]+`/)) {
         slug = substr($3, RSTART, RLENGTH)
-        sub(/gitlab project `/, "", slug); sub(/`$/, "", slug)
+        sub(/.*project `/, "", slug); sub(/`$/, "", slug)
       }
       print slug; exit
     }' "$HQ_ROOT/00-META/repos.md"
@@ -237,7 +235,7 @@ checkout_of() {
     local dest="$WORKDIR/$slug"
     [ -d "$dest" ] && { printf '%s' "$dest"; return 0; }
     git clone --quiet --branch main \
-      "https://${HQ_FLEET_USER}:${HQ_FLEET_TOKEN}@${GROUP_URL#https://}/${slug}.git" \
+      "$(hq_clone_url "$slug")" \
       "$dest" && printf '%s' "$dest"
   else
     local d

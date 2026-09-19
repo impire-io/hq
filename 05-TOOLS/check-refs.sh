@@ -21,15 +21,21 @@
 # because the question is whether it *as it stands here* orphans a reference
 # that exists on sibling main.
 #
-# In CI, set (Settings -> CI/CD -> Variables):
-#   HQ_FLEET_USER    the deploy token's username
-#   HQ_FLEET_TOKEN   the deploy token secret (Masked, Protected)
+# In CI, the fleet checkers need a read-only credential for the fleet's
+# repositories (HQ_FORGE in 05-TOOLS/config.sh decides which shape):
 #
-# Use a *group deploy token* on the fleet's GitLab group with the
-# `read_repository` scope — not a group access token. A deploy token has no
-# `api` scope at all, so it cannot read issues, merge requests, or anything
-# beyond repository contents, which is exactly this script's need. It also
-# authenticates as its own username rather than `oauth2`.
+#   GitHub  HQ_FLEET_TOKEN — a fine-grained PAT (or app token) with read-only
+#           Contents access to the org's repositories, stored as an Actions
+#           secret. HQ_FLEET_USER is not needed.
+#   GitLab  HQ_FLEET_USER + HQ_FLEET_TOKEN (Settings -> CI/CD -> Variables,
+#           Masked + Protected) — a *group deploy token* with the
+#           `read_repository` scope, not a group access token. A deploy token
+#           has no `api` scope at all, so it cannot read issues, merge
+#           requests, or anything beyond repository contents, which is exactly
+#           this script's need.
+#
+# Either way the credential can only read code — the least it takes to do
+# this job.
 #
 # Exits non-zero on a broken reference OR on a sibling it could not read.
 # An unreadable sibling is a failure, never a skip: silence must not look
@@ -51,7 +57,6 @@ HQ_REPO="${HQ_REPO:-$(basename "$HQ_ROOT")}"
 # Siblings sit beside the *clone*. In a git worktree that is not the parent of
 # HQ_ROOT, so ask git where the real repository is.
 SIBLING_ROOT="$(dirname "$(dirname "$(git -C "$HQ_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$HQ_ROOT/.git")")")"
-GROUP_URL="https://${HQ_FORGE_HOST}/${HQ_GROUP_PATH}"
 BROKEN=0
 DRIFT=0
 UNREADABLE=0
@@ -73,8 +78,8 @@ missing_on_main() {
 }
 
 # The repo map is the source of truth for which siblings exist. Its first
-# column is the *logical* name, which is not always the GitLab project slug —
-# repos.md records the difference as "(gitlab project `x`)". Emits
+# column is the *logical* name, which is not always the forge project slug —
+# repos.md records the difference as "(project `x`)". Emits
 # "<logical> <slug>" per line.
 siblings() {
   awk -F'|' -v hq="$HQ_REPO" '
@@ -82,9 +87,9 @@ siblings() {
       name = $2; gsub(/[` ]/, "", name)
       if (name == hq) next
       slug = name
-      if (match($3, /gitlab project `[a-z0-9-]+`/)) {
+      if (match($3, /project `[a-z0-9-]+`/)) {
         slug = substr($3, RSTART, RLENGTH)
-        sub(/gitlab project `/, "", slug); sub(/`$/, "", slug)
+        sub(/.*project `/, "", slug); sub(/`$/, "", slug)
       }
       print name, slug
     }' "$HQ_ROOT/00-META/repos.md"
@@ -98,7 +103,7 @@ checkout_of() {
     local dest="$WORKDIR/$slug"
     [ -d "$dest" ] && { printf '%s' "$dest"; return 0; }
     git clone --quiet --depth 1 --branch main \
-      "https://${HQ_FLEET_USER}:${HQ_FLEET_TOKEN}@${GROUP_URL#https://}/${slug}.git" \
+      "$(hq_clone_url "$slug")" \
       "$dest" && printf '%s' "$dest"
   else
     # A local clone may be named after either the logical name or the slug.
@@ -117,8 +122,7 @@ checkout_of() {
 
 if [ "${CI:-}" = "true" ]; then
   hq_require_group || exit 1
-  : "${HQ_FLEET_USER:?HQ_FLEET_USER must be set in CI (see header)}"
-  : "${HQ_FLEET_TOKEN:?HQ_FLEET_TOKEN must be set in CI (see header)}"
+  hq_require_fleet_auth
   WORKDIR="$(mktemp -d)"
   trap 'rm -rf "$WORKDIR"' EXIT
 fi
@@ -129,7 +133,7 @@ while read -r repo slug; do
   [ -n "$repo" ] || continue
   dir="$(checkout_of "$repo" "$slug")"
   if [ -z "$dir" ]; then
-    echo "UNREADABLE  $repo (gitlab: $slug) — could not obtain a checkout"
+    echo "UNREADABLE  $repo (project: $slug) — could not obtain a checkout"
     UNREADABLE=$((UNREADABLE + 1))
     continue
   fi
@@ -138,7 +142,7 @@ while read -r repo slug; do
   #  - Bare prose mentions are records of what was said, not navigable links;
   #    rewriting them would alter the record.
   #  - Full https:// URLs into the hq repo are deliberately out of scope: they are
-  #    resolved by GitLab, not by the filesystem, and a path-based check
+  #    resolved by the forge, not by the filesystem, and a path-based check
   #    reports every one of them as broken (36 false positives when tried).
   while IFS= read -r hit; do
     [ -n "$hit" ] || continue

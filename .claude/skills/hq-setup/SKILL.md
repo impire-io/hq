@@ -1,6 +1,6 @@
 ---
 name: hq-setup
-description: Use when configuring a fresh instance of this hq template for a new project — naming the project, wiring the GitLab group, and filling the 00-META content docs. Triggers on "set up this hq repo", "configure the template", "initialize this project", "run the setup wizard".
+description: Use when configuring a fresh instance of this hq template for a new project — naming the project, wiring the forge (GitHub or GitLab), and filling the 00-META content docs. Triggers on "set up this hq repo", "configure the template", "initialize this project", "run the setup wizard".
 ---
 
 # hq-setup
@@ -13,12 +13,13 @@ Ask for, and confirm back:
 
 - **Project name** — the human name used in doc titles (e.g. "Atlas").
 - **This repo's name** — the clone directory name (e.g. `atlas-hq`). If the current directory's name already looks right, propose it.
-- **GitLab host** (e.g. `gitlab.example.com`) and **group path** (e.g. `my-org/atlas`) — the group that holds, or will hold, the fleet.
-- **Known code repos**, if any exist yet: name + one line on what each owns (and the GitLab project slug where it differs from the directory name).
+- **The forge** — GitHub or GitLab; this varies per project and per organization.
+- **Forge host** (e.g. `github.com` or `gitlab.example.com`) and **org/group path** (e.g. `my-org`, or `my-org/atlas` on GitLab, where subgroups exist) — the place that holds, or will hold, the fleet.
+- **Known code repos**, if any exist yet: name + one line on what each owns (and the forge project slug where it differs from the directory name).
 
 ## 2. Write the config
 
-Fill the three values at the top of [`05-TOOLS/config.sh`](../../../05-TOOLS/config.sh): `HQ_REPO`, `HQ_FORGE_HOST`, `HQ_GROUP_PATH`. Leave `HQ_REPO` empty when the repo's directory name equals its repo name (the tools derive it). If the project deploys via a Helm umbrella + values-file shape, also offer the optional `HQ_DEPLOY_*` values (see `05-TOOLS/check-deployed.sh --help`); otherwise leave them out.
+Fill the values at the top of [`05-TOOLS/config.sh`](../../../05-TOOLS/config.sh): `HQ_REPO`, `HQ_FORGE`, `HQ_FORGE_HOST`, `HQ_GROUP_PATH`. Leave `HQ_REPO` empty when the repo's directory name equals its repo name, and `HQ_FORGE` empty when the host makes it obvious (a host containing "github" infers github; anything else gitlab) — the tools derive both. If the project deploys via a Helm umbrella + values-file shape, also offer the optional `HQ_DEPLOY_*` values (see `05-TOOLS/check-deployed.sh --help`); otherwise leave them out.
 
 ## 3. Seed the repo map
 
@@ -40,11 +41,17 @@ Set the project's name in the `README.md` H1 (keep the rest), and check `AGENTS.
 
 ## 6. Forge prerequisites (tell, don't do)
 
-List for the user what only they can set up on GitLab:
+List for the user what only they can set up on the forge — the shape differs per forge:
 
-- **Protected main + Developer push:** the three direct-to-main writers (`allocate-issue.sh`, `claim.sh`, `set-issue.sh`) need Developer push access to `main` on this repo (Settings → Repository → Protected branches).
-- **CI deploy token:** the fleet checkers in CI need `HQ_FLEET_USER` / `HQ_FLEET_TOKEN` CI variables — a **group deploy token** with `read_repository` scope (Masked, Protected), not a group access token (see `05-TOOLS/check-refs.sh --help`).
-- **glab + SSH:** each machine needs `glab auth login --hostname <host>` and an SSH key on the host before `05-TOOLS/sync.sh` works.
+**GitHub**
+- **Protected main the writers can still push:** the three direct-to-main writers (`allocate-issue.sh`, `claim.sh`, `set-issue.sh`) need push access to `main` — a branch protection rule or ruleset that requires PRs for everyone else but lets the intended people/apps push directly.
+- **CI read token:** the fleet checkers need the `HQ_FLEET_TOKEN` Actions secret — a fine-grained PAT (or GitHub App token) with read-only **Contents** access to the org's repositories (see `05-TOOLS/check-refs.sh --help`).
+- **gh + SSH:** each machine needs `gh auth login --hostname <host>` and an SSH key on the host before `05-TOOLS/sync.sh` works.
+
+**GitLab**
+- **Protected main + Developer push:** the same three writers need Developer push access to `main` (Settings → Repository → Protected branches).
+- **CI deploy token:** the fleet checkers need `HQ_FLEET_USER` / `HQ_FLEET_TOKEN` CI variables — a **group deploy token** with `read_repository` scope (Masked, Protected), not a group access token (see `05-TOOLS/check-refs.sh --help`).
+- **glab + SSH:** each machine needs `glab auth login --hostname <host>`, `jq`, and an SSH key on the host before `05-TOOLS/sync.sh` works.
 
 ## 7. Verify
 
@@ -54,7 +61,8 @@ List for the user what only they can set up on GitLab:
 
 ## 8. Trim what does not apply
 
-Ask whether the project keeps a derived docs site and/or a builder-skills marketplace. If not, offer to delete playbooks 05/06 (`00-META/process/05-external-sync.md`, `06-builder-skill-sync.md`), the `hq-sync-docs` skill, and the references to them (the overview table in `00-META/process/00-overview.md`, step 8–9 of playbook 04, step 5 of the graduation flows) — and this section's own reminder in AGENTS.md.
+- **The other forge's CI file:** the template ships both `.github/workflows/checks.yml` and `.gitlab-ci.yml`; delete the one the chosen forge does not use.
+- **Derived views:** ask whether the project keeps a derived docs site and/or a builder-skills marketplace. If not, offer to delete playbooks 05/06 (`00-META/process/05-external-sync.md`, `06-builder-skill-sync.md`), the `hq-sync-docs` skill, and the references to them (the overview table in `00-META/process/00-overview.md`, step 8–9 of playbook 04, step 5 of the graduation flows) — and this section's own reminder in AGENTS.md.
 
 ## Do not
 

@@ -6,7 +6,7 @@ The folder holds one Markdown document per feature, **prose only**: what the fea
 
 ## The roadmap
 
-The sequence we pursue, in order. No dates, no quarters, no owners: the order is the whole statement, and it changes by merge request when our minds change. Where a feature stands is never written here; `05-TOOLS/status.sh --roadmap` prints this list with each feature's live rollup beside it.
+The sequence we pursue, in order. No dates, no quarters, no owners: the order is the whole statement, and it changes by MR when our minds change. Where a feature stands is never written here; `05-TOOLS/status.sh --roadmap` prints this list with each feature's live rollup beside it.
 
 <!-- The numbered list of features. Entries start at column 0; the indented
 example below is ignored by the tools:
@@ -48,4 +48,4 @@ Beside the rollup the line counts the members that are not terminal: research st
 
 - All files must be Markdown, one document per feature, named in kebab-case; the file name is the value records use.
 - A feature doc never carries frontmatter, a status line, or a list of its members. Membership is derived from the records, status from their frontmatter.
-- Adding, renaming, or removing a feature, and reordering the roadmap, goes by merge request ([playbook 07](../00-META/process/07-parallel-work.md)). Renaming a feature renames its value on every member in the same MR.
+- Adding, renaming, or removing a feature, and reordering the roadmap, goes by MR ([playbook 07](../00-META/process/07-parallel-work.md)). Renaming a feature renames its value on every member in the same MR.

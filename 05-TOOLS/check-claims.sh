@@ -5,13 +5,16 @@
 #
 # Issue reports carry `fixed-by:` and `lands:`; design docs carry `lands:`.
 # Those fields are what close an issue and flip a design to implemented, and
-# nothing verifies them. GitLab stamps every merge commit with
+# nothing verifies them. The forge stamps merged work into git history:
 #
-#     See merge request <group>/<repo>!<n>
+#   GitLab  every merge commit ends "See merge request <group>/<repo>!<n>"
+#   GitHub  a merge commit reads "Merge pull request #<n> from …", and a
+#           squash merge puts "(#<n>)" at the end of the squashed subject
 #
-# so "did !33 actually merge?" is a `git log --grep` on that repo's main. No
-# API and no `api` scope are needed — the read-only deploy token already used
-# by 05-TOOLS/check-refs.sh is enough.
+# so "did !33 / #33 actually merge?" is a `git log` question on that repo's
+# main (HQ_FORGE in 05-TOOLS/config.sh picks the pattern). No API scope is
+# needed — the read-only credential already used by 05-TOOLS/check-refs.sh
+# is enough.
 #
 # Usage:
 #   ./05-TOOLS/check-claims.sh             # local: expects sibling clones beside this repo
@@ -23,7 +26,8 @@
 # --only is what 05-TOOLS/set-issue.sh runs before it lets a close land on
 # main: seconds against the record's own repos, not the fleet-wide fetch.
 #
-# CI variables: HQ_FLEET_USER / HQ_FLEET_TOKEN, as for 05-TOOLS/check-refs.sh.
+# CI credential: HQ_FLEET_TOKEN (GitHub) or HQ_FLEET_USER + HQ_FLEET_TOKEN
+# (GitLab), as documented in 05-TOOLS/check-refs.sh.
 #
 # Siblings are read at origin/main and **fetched first**, concurrently, as
 # 05-TOOLS/check-refs.sh does serially.
@@ -44,9 +48,12 @@
 #   * Any other status: references are informational. An open MR is expected.
 #
 # Reference kinds, each verifiable against git:
-#   mr: "!N"        a merge commit carrying GitLab's "See merge request …!N"
-#   commit: <sha>   an ancestor of origin/main (used where a merge carries no
-#                   MR trailer)
+#   mr: "!N"|"#N"   GitLab: a merge commit carrying "See merge request …!N".
+#                   GitHub: a "Merge pull request #N from …" merge commit, or
+#                   a squash-merge subject ending "(#N)".
+#   commit: <sha>   an ancestor of origin/main (used where a merge leaves no
+#                   marker — a fast-forward on GitLab, a rebase merge on
+#                   GitHub)
 #   tag: vX.Y.Z     a tag resolving to a commit on main
 #   action: <kind>  deliberately OUT OF SCOPE — an operational act such as a
 #                   deploy reconcile. It happened outside git, so no git check
@@ -72,7 +79,6 @@ HQ_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # HQ_ROOT, so ask git where the real repository is.
 SIBLING_ROOT="$(dirname "$(dirname "$(git -C "$HQ_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$HQ_ROOT/.git")")")"
 GROUP_PATH="${HQ_GROUP_PATH}"
-GROUP_URL="https://${HQ_FORGE_HOST}/${GROUP_PATH}"
 FALSE=0
 UNREADABLE=0
 OUTOFSCOPE=0
@@ -80,22 +86,21 @@ VERIFIED=0
 
 if [ "${CI:-}" = "true" ]; then
   hq_require_group || exit 1
-  : "${HQ_FLEET_USER:?HQ_FLEET_USER must be set in CI}"
-  : "${HQ_FLEET_TOKEN:?HQ_FLEET_TOKEN must be set in CI}"
+  hq_require_fleet_auth
   WORKDIR="$(mktemp -d)"
   trap 'rm -rf "$WORKDIR"' EXIT
 fi
 
-# Logical name -> gitlab slug, from the note repos.md carries.
+# Logical name -> forge project slug, from the note repos.md carries.
 slug_of() {
   awk -F'|' -v want="$1" '
     /^\| `/ {
       name = $2; gsub(/[` ]/, "", name)
       if (name != want) next
       slug = name
-      if (match($3, /gitlab project `[a-z0-9-]+`/)) {
+      if (match($3, /project `[a-z0-9-]+`/)) {
         slug = substr($3, RSTART, RLENGTH)
-        sub(/gitlab project `/, "", slug); sub(/`$/, "", slug)
+        sub(/.*project `/, "", slug); sub(/`$/, "", slug)
       }
       print slug; exit
     }' "$HQ_ROOT/00-META/repos.md"
@@ -110,7 +115,7 @@ checkout_of() {
     local dest="$WORKDIR/$slug"
     [ -d "$dest" ] && { printf '%s' "$dest"; return 0; }
     git clone --quiet --branch main \
-      "https://${HQ_FLEET_USER}:${HQ_FLEET_TOKEN}@${GROUP_URL#https://}/${slug}.git" \
+      "$(hq_clone_url "$slug")" \
       "$dest" && printf '%s' "$dest"
   else
     local d
@@ -166,16 +171,37 @@ prefetch_siblings() {
   PREFETCHED=1
 }
 
-# Does <repo>!<n> have a merge commit on main? The trailer names the project
-# PATH at the time of the merge, so a renamed project's older merges carry its
-# former name: a repos.md row that keeps that former name (its note pointing
-# the gitlab project at the new slug) is matched on either.
-merged() {
-  local dir="$1" slug="$2" num="$3" name="${4:-$2}"
-  git -C "$dir" log origin/main --merges \
-      --grep="See merge request ${GROUP_PATH}/${slug}!${num}\$" \
-      --grep="See merge request ${GROUP_PATH}/${name}!${num}\$" \
-      --format=%h -1 2>/dev/null | grep -q .
+# mr_merged <dir> <slug> <name> <num> — is MR/PR <num> merged on origin/main?
+#
+# GitLab: the merge-commit trailer names the project PATH at the time of the
+# merge, so a renamed project's older merges carry its former name: a repos.md
+# row that keeps that former name (its note pointing the project at the new
+# slug) is matched on either.
+#
+# GitHub: a merge commit reads "Merge pull request #N from …". A squash merge
+# produces no merge commit; its marker is "(#N)" at the END of the squashed
+# subject, checked against subjects only — "(#N)" cited mid-body is prose, not
+# a merge marker. A rebase merge leaves nothing; commit: is the honest form.
+mr_merged() {
+  local dir="$1" slug="$2" name="$3" num="$4" hit subjects
+  # Captured, then grepped from the variable: `git log | grep -q` under
+  # pipefail races — grep's early exit SIGPIPEs git and a real match reads
+  # as failure.
+  case "$(hq_forge)" in
+    github)
+      hit="$(git -C "$dir" log origin/main --merges \
+               --grep="Merge pull request #${num} from" \
+               --format=%h -1 2>/dev/null)"
+      [ -n "$hit" ] && return 0
+      subjects="$(git -C "$dir" log origin/main --no-merges --format=%s 2>/dev/null)"
+      grep -qE "\(#${num}\)\$" <<<"$subjects" ;;
+    *)
+      hit="$(git -C "$dir" log origin/main --merges \
+               --grep="See merge request ${GROUP_PATH}/${slug}!${num}\$" \
+               --grep="See merge request ${GROUP_PATH}/${name}!${num}\$" \
+               --format=%h -1 2>/dev/null)"
+      [ -n "$hit" ] ;;
+  esac
 }
 
 echo "Checking completion claims in hq documents that say work is done..."
@@ -215,7 +241,7 @@ for doc in $docs; do
         r=substr(line, RSTART, RLENGTH); sub(/repo:[[:space:]]*/, "", r); repo=r
       }
       if (repo == "") next
-      if (match(line, /mr:[[:space:]]*"?!?[0-9]+/)) {
+      if (match(line, /mr:[[:space:]]*"?[!#]?[0-9]+/)) {
         v=substr(line, RSTART, RLENGTH); gsub(/[^0-9]/, "", v)
         if (v != "") print repo, "mr", v
       }
@@ -252,12 +278,7 @@ for doc in $docs; do
     ok=1
     case "$kind" in
       mr)
-        # The trailer names the project PATH at merge time; a renamed project's
-        # older merges carry its former name, kept as its own repos.md row.
-        git -C "$dir" log origin/main --merges \
-            --grep="See merge request ${GROUP_PATH}/${slug}!${value}\$" \
-            --grep="See merge request ${GROUP_PATH}/${repo}!${value}\$" \
-            --format=%h -1 2>/dev/null | grep -q . || ok=0 ;;
+        mr_merged "$dir" "$slug" "$repo" "$value" || ok=0 ;;
       commit)
         git -C "$dir" merge-base --is-ancestor "$value" origin/main 2>/dev/null || ok=0 ;;
       tag)

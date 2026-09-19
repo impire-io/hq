@@ -12,7 +12,7 @@
 # produces: playbook 04 step 3 requires the owning repo's spec to cite the
 # hq design by path. This check reads that citation. It scans every
 # sibling's `specs/*/spec.md` at origin/main for `02-DESIGN/….md` paths — bare,
-# hq-repo-prefixed, or inside a GitLab blob URL — and flags any cited design
+# hq-repo-prefixed, or inside a forge blob URL — and flags any cited design
 # whose status is still `designed`: playbook 04 step 5 (set `in-progress` at
 # handoff) or step 7 (set `implemented` when the contract runs on main) was
 # skipped.
@@ -23,7 +23,8 @@
 #   CI=true ./05-TOOLS/check-shipped.sh     # CI: clones the repos it needs (shallow — no history needed)
 #   ./05-TOOLS/check-shipped.sh --self-test # exercise every tier and both scopes on a throwaway fleet
 #
-# CI variables: HQ_FLEET_USER / HQ_FLEET_TOKEN, as for 05-TOOLS/check-refs.sh.
+# CI credential: HQ_FLEET_TOKEN (GitHub) or HQ_FLEET_USER + HQ_FLEET_TOKEN
+# (GitLab), as documented in 05-TOOLS/check-refs.sh.
 #
 # Tiers
 # -----
@@ -62,7 +63,6 @@ HQ_REPO="${HQ_REPO:-$(basename "$HQ_ROOT")}"
 # Siblings sit beside the *clone*. In a git worktree that is not the parent of
 # HQ_ROOT, so ask git where the real repository is.
 SIBLING_ROOT="${HQ_SIBLING_ROOT:-$(dirname "$(dirname "$(git -C "$HQ_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$HQ_ROOT/.git")")")}"
-GROUP_URL="https://${HQ_FORGE_HOST}/${HQ_GROUP_PATH}"
 SCOPE="${HQ_CHECK_SCOPE:-fleet}"
 GAPS=0; DEFERRED=0; ABANDONED=0; UNRESOLVED=0; VERIFIED=0; AGGREGATE=0; UNREADABLE=0
 
@@ -85,7 +85,7 @@ if [ "${1:-}" = "--self-test" ]; then
   git clone -q "$T/fleet/hq.origin.git" "$T/hq" 2>/dev/null
   git -C "$T/hq" checkout -q -b main
   mkdir -p "$T/hq/00-META" "$T/hq/02-DESIGN/01-foundation" "$T/hq/02-DESIGN/02-services/09-thing"
-  printf '| Repository | Owns |\n|---|---|\n| `hq` | this repo |\n| `widget` | the sibling (gitlab project `thing`) |\n' > "$T/hq/00-META/repos.md"
+  printf '| Repository | Owns |\n|---|---|\n| `hq` | this repo |\n| `widget` | the sibling (project `thing`) |\n' > "$T/hq/00-META/repos.md"
   design() { printf -- '---\nstatus: %s\nupdated: 2026-01-01\n---\n# %s\n' "$2" "$1" > "$T/hq/02-DESIGN/$1"; }
   design 01-foundation/01-shipped.md designed
   design 01-foundation/02-building.md in-progress
@@ -104,7 +104,7 @@ if [ "${1:-}" = "--self-test" ]; then
 See also 02-DESIGN/01-foundation/02-building.md and ../../hq/02-DESIGN/01-foundation/03-done.md.
 SPEC
   cat > "$T/fleet/thing/specs/002-second/spec.md" <<'SPEC'
-Why not: [the dropped design](https://gitlab.example.com/my-org/fleet/hq/-/blob/main/02-DESIGN/01-foundation/04-dropped.md).
+Why not: [the dropped design](https://forge.example.com/my-org/hq/blob/main/02-DESIGN/01-foundation/04-dropped.md).
 Odd one: 02-DESIGN/02-services/09-thing/00-odd.md; aggregate: 02-DESIGN/02-services/09-thing/README.md.
 SPEC
   cat > "$T/fleet/thing/specs/003-third/spec.md" <<'SPEC'
@@ -143,8 +143,7 @@ fi
 
 if [ "${CI:-}" = "true" ]; then
   hq_require_group || exit 1
-  : "${HQ_FLEET_USER:?HQ_FLEET_USER must be set in CI}"
-  : "${HQ_FLEET_TOKEN:?HQ_FLEET_TOKEN must be set in CI}"
+  hq_require_fleet_auth
   WORKDIR="$(mktemp -d)"
   trap 'rm -rf "$WORKDIR"' EXIT
 fi
@@ -167,9 +166,9 @@ siblings() {
       name = $2; gsub(/[` ]/, "", name)
       if (name == hq) next
       slug = name
-      if (match($3, /gitlab project `[a-z0-9-]+`/)) {
+      if (match($3, /project `[a-z0-9-]+`/)) {
         slug = substr($3, RSTART, RLENGTH)
-        sub(/gitlab project `/, "", slug); sub(/`$/, "", slug)
+        sub(/.*project `/, "", slug); sub(/`$/, "", slug)
       }
       print name, slug
     }' "$HQ_ROOT/00-META/repos.md"
@@ -184,7 +183,7 @@ checkout_of() {
     local dest="$WORKDIR/$slug"
     [ -d "$dest" ] && { printf '%s' "$dest"; return 0; }
     git clone --quiet --depth 1 --branch main \
-      "https://${HQ_FLEET_USER}:${HQ_FLEET_TOKEN}@${GROUP_URL#https://}/${slug}.git" \
+      "$(hq_clone_url "$slug")" \
       "$dest" && printf '%s' "$dest"
   else
     local d
@@ -235,7 +234,7 @@ while read -r repo slug; do
   [ -n "$repo" ] || continue
   dir="$(checkout_of "$repo" "$slug")"
   if [ -z "$dir" ]; then
-    echo "UNREADABLE $repo (gitlab: $slug) — could not obtain a checkout"
+    echo "UNREADABLE $repo (project: $slug) — could not obtain a checkout"
     UNREADABLE=$((UNREADABLE + 1)); continue
   fi
   found="$(git -C "$dir" grep -oE '02-DESIGN/[A-Za-z0-9_./-]+\.md' origin/main -- 'specs/*/spec.md' 2>/dev/null \
