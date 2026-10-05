@@ -1,7 +1,7 @@
 # Playbook 07 — parallel work
 
 **Trigger:** any piece of work is about to start in a code repo or in the hq repo — rooted in a design or issue, or not.
-**Who:** engineers and agents alike; an agent runs the whole playbook except the merge.
+**Who:** engineers and agents alike; whether an agent also runs the merge (step 7) is the project's `HQ_MERGE_POLICY`.
 
 Several agents run on one machine and several engineers work the same fleet. This playbook is what keeps them out of each other's working trees and makes the start of work visible to everyone else the moment it happens. The posture is [`../how-we-build.md`](../how-we-build.md#work-in-isolation-push-continuously-land-in-a-declared-order).
 
@@ -147,7 +147,12 @@ No `spec/`, `fix/`, or `feat/` prefix. The ID is the query.
 
    Draft and ready are the only two signals the reviewer gets. Draft says "not yet mergeable — don't spend review on this"; ready says "read it and merge it". A finished MR left in draft sends the first signal about the second state, and the human has to re-derive readiness by inspecting the branch — the one job the flag exists to spare them. Never flip earlier than the two conditions above, and never leave a finished MR sitting in draft.
 
-7. **A human merges.** An agent never merges. Where a `lands:` order exists, merge in that order.
+7. **Merge, by the project's policy.** `./05-TOOLS/merge-policy.sh` prints it (`HQ_MERGE_POLICY` in `05-TOOLS/config.sh`):
+   - `agents` — whoever did the work, agent or engineer, merges once the MR is ready by step 6's two conditions.
+   - `humans` — the agent's work ends at ready; a human merges.
+   - `undecided` — the agent's work ends at ready, and it asks the human which policy the project wants; it does not merge.
+
+   Whoever merges: where a `lands:` order exists, merge in that order and never ahead of a predecessor; branch protection and required checks still apply — never merge past a failing check or around them.
 
 8. **Tear down.** Once every MR of the work item has merged:
 

@@ -17,10 +17,11 @@ Ask for, and confirm back:
 - **Forge host** (e.g. `github.com` or `gitlab.example.com`) and **org/group path** (e.g. `my-org`, or `my-org/atlas` on GitLab, where subgroups exist) — the place that holds, or will hold, the fleet.
 - **Known code repos**, if any exist yet: name + one line on what each owns (and the forge project slug where it differs from the directory name).
 - **The template repo's URL** — where this instance was created from, so `05-TOOLS/migrate.sh` can pull later template improvements. Skip it only if the project will never migrate.
+- **Who merges a ready MR** — `agents` (whoever did the work merges once it is ready, in landing order) or `humans` (the agent stops at ready; a human merges). The template has no default: ask, and if the human is not ready to choose, leave it empty — agents then stop at ready and ask each time.
 
 ## 2. Write the config
 
-Fill the values at the top of [`05-TOOLS/config.sh`](../../../05-TOOLS/config.sh): `HQ_REPO`, `HQ_FORGE`, `HQ_FORGE_HOST`, `HQ_GROUP_PATH`, `HQ_TEMPLATE_REPO`. Leave `HQ_REPO` empty when the repo's directory name equals its repo name, and `HQ_FORGE` empty when the host makes it obvious (a host containing "github" infers github; anything else gitlab) — the tools derive both. If the project deploys via a Helm umbrella + values-file shape, also offer the optional `HQ_DEPLOY_*` values (see `05-TOOLS/check-deployed.sh --help`); otherwise leave them out.
+Fill the values at the top of [`05-TOOLS/config.sh`](../../../05-TOOLS/config.sh): `HQ_REPO`, `HQ_FORGE`, `HQ_FORGE_HOST`, `HQ_GROUP_PATH`, `HQ_TEMPLATE_REPO`, `HQ_MERGE_POLICY`. Leave `HQ_REPO` empty when the repo's directory name equals its repo name, and `HQ_FORGE` empty when the host makes it obvious (a host containing "github" infers github; anything else gitlab) — the tools derive both. If the project deploys via a Helm umbrella + values-file shape, also offer the optional `HQ_DEPLOY_*` values (see `05-TOOLS/check-deployed.sh --help`); otherwise leave them out.
 
 With `HQ_TEMPLATE_REPO` set, record the migration baseline so `05-TOOLS/migrate.sh` knows where this instance forked off:
 

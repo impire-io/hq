@@ -111,7 +111,8 @@ one query the ID exists to make possible.
   at the beginning of the work rather than the end. That is what makes
   "keep scope small" enforceable instead of merely requested: one group-wide MR
   query answers what everyone is working on right now. An agent may branch,
-  push, open the draft, and flip it out of draft; **merging stays with a human.**
+  push, open the draft, and flip it out of draft; whether it also merges is this
+  project's `HQ_MERGE_POLICY` (`05-TOOLS/config.sh`).
   Flipping to ready requires the blocking quality gate green *and* every declared
   predecessor merged.
 

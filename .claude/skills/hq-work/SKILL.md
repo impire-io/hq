@@ -65,7 +65,7 @@ Commit at every green checkpoint and push every commit. Refresh from `origin/mai
 ## Landing work
 
 5. **Mark the MR ready yourself** (`glab mr update --ready` / `gh pr ready`) the moment the quality gate is green — `make fmt && make test && make lint` — **and** every predecessor in `after:` has merged. Never earlier, and never left undone: a finished MR sitting in draft makes the human re-derive readiness; ready means they just read and merge.
-6. **A human merges**, in `lands:` order where one exists.
+6. **Merge by the project's policy** — `<clone-root>/<hq-repo>/05-TOOLS/merge-policy.sh`: `agents` → merge it yourself, in `lands:` order, never past a failing check; `humans` → stop at ready; `undecided` → stop at ready and ask the human which policy the project wants.
 7. **Tear down** once every MR of the item has merged: `<clone-root>/<hq-repo>/05-TOOLS/teardown-workspace.sh <work-id>`. It scopes every step to that one item.
 
 ## Do not
@@ -73,6 +73,6 @@ Commit at every green checkpoint and push every commit. Refresh from `origin/mai
 - Do not work in `<clone-root>/<repo>` directly — that clone is shared with every other agent on the machine, and a write to it is refused, not merely discouraged.
 - **Do not delete anything wider than `.work/<work-id>/`.** `.work/` holds every other agent's in-flight worktrees, so `rm -rf .work`, `rm -rf .work/*`, or a loop over `.work/*/` destroys their work, including what they have not committed. This has happened. A PreToolUse hook now refuses those forms; use `05-TOOLS/teardown-workspace.sh` rather than composing an `rm` by hand.
 - Do not hold a branch back from being pushed because it is unfinished. Push it as a draft.
-- Do not flip to ready with an unmerged predecessor, and **never merge as an agent**.
+- Do not flip to ready with an unmerged predecessor, and **never merge unless `merge-policy.sh` says `agents`** — `undecided` is a question to ask, not a default to guess.
 - Do not leave a finished MR in draft — marking it ready is the agent's own closing move, not the reviewer's chore.
 - Do not record cross-repo ordering as prose in a report — it goes in `lands:`.
