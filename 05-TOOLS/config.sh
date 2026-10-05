@@ -21,12 +21,23 @@
 #                  URL or local path. 05-TOOLS/migrate.sh pulls the template's
 #                  machinery improvements from it; leave empty if this project
 #                  never migrates.
+#   HQ_MERGE_POLICY  who merges a ready MR — the project's call, not the
+#                  template's (05-TOOLS/merge-policy.sh reads it):
+#                    agents  whoever did the work merges once the MR is ready,
+#                            in lands: order, never past a failing check and
+#                            never around branch protection;
+#                    humans  the agent marks the MR ready and stops; a human
+#                            merges;
+#                    empty   undecided: the agent marks the MR ready, asks the
+#                            human which policy the project wants, and does
+#                            not merge. The hq-setup skill asks.
 
 : "${HQ_REPO:=}"
 : "${HQ_FORGE:=}"
 : "${HQ_FORGE_HOST:=}"
 : "${HQ_GROUP_PATH:=}"
 : "${HQ_TEMPLATE_REPO:=}"
+: "${HQ_MERGE_POLICY:=}"
 
 # hq_repo — print the hub repo's name, deriving it from the working tree's
 # root directory when HQ_REPO is unset. Call from inside the hq repo.
