@@ -7,7 +7,10 @@
 # PAT (or app token) with read-only Contents access to the org's repositories
 # (see 05-TOOLS/check-refs.sh --help). On a pull request the fleet checks run
 # in merge-request scope: they fail only on what the branch broke and report
-# the rest as drift/deferred.
+# the rest as drift/deferred. Until 05-TOOLS/config.sh names the forge group
+# (the template itself, or an instance hq-setup has not filled in yet) there
+# is no fleet to read: the fleet checks are skipped with a notice, not failed,
+# so the template's own CI is not red on every run.
 
 name: checks
 
@@ -37,8 +40,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: bash 05-TOOLS/check-refs.sh
-      - run: bash 05-TOOLS/check-claims.sh
-      - run: bash 05-TOOLS/check-unclaimed.sh
-      - run: bash 05-TOOLS/check-shipped.sh
-      - run: bash 05-TOOLS/check-deployed.sh
+      - name: Is a fleet configured?
+        id: fleet
+        run: |
+          . 05-TOOLS/config.sh
+          if [ -n "${HQ_FORGE_HOST}" ] && [ -n "${HQ_GROUP_PATH}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=fleet checks skipped::05-TOOLS/config.sh names no forge group (HQ_FORGE_HOST, HQ_GROUP_PATH) — the hq-setup skill fills them in"
+          fi
+      - if: steps.fleet.outputs.configured == 'true'
+        run: bash 05-TOOLS/check-refs.sh
+      - if: steps.fleet.outputs.configured == 'true'
+        run: bash 05-TOOLS/check-claims.sh
+      - if: steps.fleet.outputs.configured == 'true'
+        run: bash 05-TOOLS/check-unclaimed.sh
+      - if: steps.fleet.outputs.configured == 'true'
+        run: bash 05-TOOLS/check-shipped.sh
+      - if: steps.fleet.outputs.configured == 'true'
+        run: bash 05-TOOLS/check-deployed.sh
