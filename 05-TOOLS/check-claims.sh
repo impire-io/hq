@@ -49,8 +49,9 @@
 #
 # Reference kinds, each verifiable against git:
 #   mr: "!N"|"#N"   GitLab: a merge commit carrying "See merge request …!N".
-#                   GitHub: a "Merge pull request #N from …" merge commit, or
-#                   a squash-merge subject ending "(#N)".
+#   pr: "#N"        GitHub: a "Merge pull request #N from …" merge commit, or
+#                   a squash-merge subject ending "(#N)". The two spellings
+#                   are one kind: each is verified the way HQ_FORGE says.
 #   commit: <sha>   an ancestor of origin/main (used where a merge leaves no
 #                   marker — a fast-forward on GitLab, a rebase merge on
 #                   GitHub)
@@ -228,6 +229,7 @@ for doc in $docs; do
   # Handles both shapes:
   #   - { repo: x, mr: "!n", after: [] }        (lands:, inline)
   #   - repo: x / mr: "!n" / note: "..."        (fixed-by:, block)
+  # with pr: accepted wherever mr: is — GitHub instances write pr:.
   refs="$(awk '
     NR==1 && /^---$/ { fm=1; next }
     fm && /^---$/    { exit }
@@ -241,7 +243,7 @@ for doc in $docs; do
         r=substr(line, RSTART, RLENGTH); sub(/repo:[[:space:]]*/, "", r); repo=r
       }
       if (repo == "") next
-      if (match(line, /mr:[[:space:]]*"?[!#]?[0-9]+/)) {
+      if (match(line, /(mr|pr):[[:space:]]*"?[!#]?[0-9]+/)) {
         v=substr(line, RSTART, RLENGTH); gsub(/[^0-9]/, "", v)
         if (v != "") print repo, "mr", v
       }
