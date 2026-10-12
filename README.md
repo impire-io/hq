@@ -165,3 +165,7 @@ Implementation lives in the code repos (see [`00-META/repos.md`](00-META/repos.m
 - Do not create new top-level folders without explicit confirmation.
 - Status lives in document frontmatter, never in central status files. Cross-cutting status overviews (matrices, badges) are generated, not maintained.
 - Every workflow is a playbook in [`00-META/process/`](00-META/process/) — follow them.
+
+## License
+
+The template is released under the [MIT License](LICENSE). A project created from it keeps or replaces that file as it sees fit — `05-TOOLS/migrate.sh` never touches it.

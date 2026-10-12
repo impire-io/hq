@@ -45,9 +45,9 @@ These deserve the most time. For each, read the guidance comments in the file, i
 4. [`00-META/how-we-deploy.md`](../../../00-META/how-we-deploy.md) — only if the deployment shape is already known; otherwise leave the skeleton and note it as a follow-up.
 5. [`00-META/how-we-build.md`](../../../00-META/how-we-build.md) — the template seeds three process postures; ask whether the project already has settled fleet-wide postures to add. Do not invent any.
 
-## 5. Titles
+## 5. Titles and license
 
-Set the project's name in the `README.md` H1 (keep the rest), and check `AGENTS.md` still reads correctly.
+Set the project's name in the `README.md` H1 (keep the rest), and check `AGENTS.md` still reads correctly. The template ships an MIT `LICENSE` with its author's name on it: ask whether the project keeps that license or has its own, and replace the file accordingly — `05-TOOLS/migrate.sh` never touches it, so the choice holds across template updates.
 
 ## 6. Forge prerequisites (tell, don't do)
 
