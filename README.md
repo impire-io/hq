@@ -87,7 +87,7 @@ cd ~/atlas/atlas-hq && git pull --ff-only
 ./05-TOOLS/teardown-workspace.sh setup
 ```
 
-**4. Bring in what exists.** From the clone, `./05-TOOLS/sync.sh` clones every repository in the configured org or group beside it. If the project already has decision records, design docs or a backlog, open a workspace and run **`/hq-migrate`**: it routes each kind into the numbered structure, with the curation this repo's rules demand.
+**4. Bring in what exists.** From the clone, `./05-TOOLS/sync.sh` clones every repository `00-META/repos.md` names, located in the configured org or group, beside it — the org may hold other projects, and the table says which repos are this one's. If the project already has decision records, design docs or a backlog, open a workspace and run **`/hq-migrate`**: it routes each kind into the numbered structure, with the curation this repo's rules demand.
 
 ### Joining a project that already has an hq
 
