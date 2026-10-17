@@ -9,11 +9,14 @@
 #
 # Discovers the repositories from the forge group or org (HQ_FORGE,
 # HQ_GROUP_PATH and HQ_FORGE_HOST in 05-TOOLS/config.sh; the CLI is gh on
-# GitHub, glab on GitLab) rather than from a list kept in this file, so a repo
-# added to the group is picked up on the next run with no edit here. Existing
-# clones are matched on their `origin` URL rather than on their directory
-# name, so a locally renamed clone is recognised instead of cloned a second
-# time.
+# GitHub, glab on GitLab) rather than from a list kept in this file, and keeps
+# only those 00-META/repos.md names — the table every fleet checker already
+# enumerates from. The group may hold far more than this project (a GitHub org
+# usually holds every project the company has), so the forge says *where* a
+# repo lives and the table says *which* repos are the fleet; a repo joins the
+# sync by gaining a row, with no edit here. Existing clones are matched on
+# their `origin` URL rather than on their directory name, so a locally renamed
+# clone is recognised instead of cloned a second time.
 #
 # On GitLab, subgroups are included and the subgroup path is mirrored on disk:
 # `<group>/<subgroup>/<repo>` clones to `<root>/<subgroup>/<repo>`. Mirroring
@@ -23,8 +26,9 @@
 # lands directly under the root.)
 #
 # It only ever fast-forwards, and only a clean clone sitting on its default
-# branch. A dirty tree or a work branch is fetched and then left exactly as it
-# was: this script must be safe to run in a fleet where other people's — and
+# branch. A dirty tree (tracked changes; untracked files do not count, since a
+# fast-forward refuses rather than overwrites one) or a work branch is fetched
+# and then left exactly as it was: this script must be safe to run in a fleet where other people's — and
 # other agents' — work is in progress. It never resets, checks out, or stashes,
 # and it never installs anything on your machine.
 #
@@ -164,7 +168,45 @@ if [ -z "$DISCOVERED" ]; then
   echo "the group returned no repositories; refusing to continue" >&2
   exit 1
 fi
-echo "  $(printf '%s\n' "$DISCOVERED" | wc -l | tr -d ' ') repositories"
+echo "  $(printf '%s\n' "$DISCOVERED" | wc -l | tr -d ' ') repositories in the group"
+
+# The fleet is the repos.md table, parsed as check-refs.sh's siblings() parses
+# it: one slug per row — the "(project `slug`)" note where the forge name
+# differs, else the name — the hq repo's own row included, so the hub syncs
+# too. Matched against the discovered path's last segment, which is the forge
+# slug on both forges (GitLab paths carry their subgroup in front).
+HQ_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FLEET_SLUGS="$(awk -F'|' '
+  /^\| `/ {
+    slug = $2; gsub(/[` ]/, "", slug)
+    if (match($3, /project `[a-z0-9-]+`/)) {
+      slug = substr($3, RSTART, RLENGTH)
+      sub(/.*project `/, "", slug); sub(/`$/, "", slug)
+    }
+    print slug
+  }' "$HQ_ROOT/00-META/repos.md")"
+
+if [ -z "$FLEET_SLUGS" ]; then
+  echo "00-META/repos.md names no repositories; refusing to continue" >&2
+  exit 1
+fi
+
+DISCOVERED="$(printf '%s\n' "$DISCOVERED" | awk -F'\t' -v slugs="$(printf '%s' "$FLEET_SLUGS" | tr '\n' ' ')" '
+  BEGIN { n = split(slugs, s, " "); for (i = 1; i <= n; i++) fleet[s[i]] = 1 }
+  { slug = $1; sub(/.*\//, "", slug); if (slug in fleet) print }')"
+
+# A row the group does not hold is a repo that is gone, archived, or never
+# existed — said once, never cloned from a guessed URL.
+for slug in $FLEET_SLUGS; do
+  printf '%s\n' "$DISCOVERED" | cut -f1 | sed 's#.*/##' | grep -qx -- "$slug" \
+    || echo "  ! repos.md names $slug, which $GROUP does not hold (or it is archived)" >&2
+done
+
+if [ -z "$DISCOVERED" ]; then
+  echo "none of the repositories repos.md names is in the group; refusing to continue" >&2
+  exit 1
+fi
+echo "  $(printf '%s\n' "$DISCOVERED" | wc -l | tr -d ' ') of them in the fleet (00-META/repos.md)"
 
 # Every ancestor directory implied by a discovered path — `<subgroup>` for
 # `<subgroup>/<repo>`. These are the only directories under the
@@ -292,7 +334,9 @@ while IFS=$'\t' read -r name url; do
     continue
   fi
 
-  if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+  # Untracked files are not local changes to protect: `merge --ff-only` refuses
+  # rather than overwrites one, and that refusal is reported below.
+  if [ -n "$(git -C "$repo" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
     printf '  %-*s fetched; local changes, left alone\n' "$WIDTH" "$label"
     skipped=$((skipped + 1))
     continue
