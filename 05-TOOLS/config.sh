@@ -37,7 +37,7 @@
 : "${HQ_FORGE_HOST:=}"
 : "${HQ_GROUP_PATH:=}"
 : "${HQ_TEMPLATE_REPO:=}"
-: "${HQ_MERGE_POLICY:=}"
+: "${HQ_MERGE_POLICY:=agents}"
 
 # hq_repo — print the hub repo's name, deriving it from the working tree's
 # root directory when HQ_REPO is unset. Call from inside the hq repo.
